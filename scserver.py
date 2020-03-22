@@ -23,7 +23,7 @@ class UDPSocketServer(threading.Thread):
             # now our endpoint knows about the OTHER endpoint.
             clientsocket, address = s.accept()
             if clientsocket:
-                #print("At node " + self.node["Name"])
+                # print("At node " + self.node["Name"])
 
                 revMessage = json.loads(clientsocket.recv(1024).decode())
                 if revMessage["isRREQ"] and revMessage["sourceAddr"] != self.node["Name"]:
@@ -56,19 +56,20 @@ class UDPSocketServer(threading.Thread):
                     }
 
                     RREP_Time = datetime.now()
-                    duration = RREP_Time - datetime.fromtimestamp(self.rreq_data_packet["RequestTime"].pop(self.node["Name"]))
+                    duration = RREP_Time - datetime.fromtimestamp(
+                        self.rreq_data_packet["RequestTime"].pop(self.node["Name"]))
                     Latency_Time = duration.microseconds * (10 ** -3)
                     rrep_message.update({
                         "LatencyTime": str(Latency_Time) + " ms"
                     })
 
-
                     self.node["ROUTING_TABLE"].append(rrep_message)
                     self.rrep_data_packet["sentFrom"] = self.node["Name"]
 
                 if self.rrep_data_packet is None and revMessage["sourceAddr"] != self.node["Name"]:
-                    if self.node["Name"] != self.rreq_data_packet["destAddr"] and self.node["Name"] != self.rreq_data_packet["sourceAddr"]:
-                        #print(self.node["Name"])
+                    if self.node["Name"] != self.rreq_data_packet["destAddr"] and self.node["Name"] != \
+                            self.rreq_data_packet["sourceAddr"]:
+                        # print(self.node["Name"])
                         for neighbor in self.node["neighbors"]:
                             if neighbor != self.rreq_data_packet["sourceAddr"]:
                                 # print(neighbor)
@@ -87,8 +88,9 @@ class UDPSocketServer(threading.Thread):
                         self.__sendRequest(neighborName=self.node["RREQ_MESSAGE"][-1]["nextHop"], isRREQ=False)
 
                 elif self.rrep_data_packet is not None and revMessage["sourceAddr"] != self.node["Name"]:
-                    if self.node["Name"] != self.rrep_data_packet["destAddr"] and self.node["Name"] != self.rrep_data_packet["sourceAddr"]:
-                        #print(self.node["Name"])
+                    if self.node["Name"] != self.rrep_data_packet["destAddr"] and self.node["Name"] != \
+                            self.rrep_data_packet["sourceAddr"]:
+                        # print(self.node["Name"])
                         for neighbor in self.node["neighbors"]:
                             if neighbor != self.rrep_data_packet["sourceAddr"]:
                                 # print(neighbor)
@@ -101,9 +103,6 @@ class UDPSocketServer(threading.Thread):
                             # print(neighbor)
                             self.__sendRequest(neighborName=neighbor, isRREQ=True)
 
-
-
-
                 clientsocket.close()
 
     def __sendRequest(self, neighborName=None, isRREQ=True):
@@ -115,7 +114,7 @@ class UDPSocketServer(threading.Thread):
                 ss.send(json.dumps(self.rrep_data_packet).encode())
             ss.close()
 
-    def requestDiscoveryPath(self,toNode=None):
+    def requestDiscoveryPath(self, toNode=None):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as ss:
             ss.connect((self.node["IP"], self.node["Port"]))
             rreq_data_packet = {
@@ -137,6 +136,5 @@ class UDPSocketServer(threading.Thread):
 
     def getRoutingTable(self):
         for reccord in self.node["ROUTING_TABLE"]:
-            print("Routing table of node "+self.node["Name"])
-            print(reccord,end="\n\n")
-
+            print("Routing table of node " + self.node["Name"])
+            print(reccord, end="\n\n")
