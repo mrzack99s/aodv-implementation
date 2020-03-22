@@ -44,7 +44,6 @@ udpServer = scserver.UDPSocketServer(listNode,'nodeA')
 udpServer1 = scserver.UDPSocketServer(listNode,'nodeB')
 udpServer2 = scserver.UDPSocketServer(listNode,'nodeC')
 
-
 if __name__ == "__main__":
     udpServer.start()
     udpServer1.start()
