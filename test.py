@@ -7,8 +7,8 @@ listNode = {}
 nodeC = {
     "ID": 3,
     "Name": "nodeC",
-    "IP": "127.0.0.1",
-    "Port": 1236,
+    "IP": "::1",
+    "Port": 20003,
     "neighbors": ["nodeB"],
     "RREQ_MESSAGE": [],
     "ROUTING_TABLE": [],
@@ -17,8 +17,8 @@ nodeC = {
 nodeB = {
     "ID": 2,
     "Name": "nodeB",
-    "IP": "127.0.0.1",
-    "Port": 1235,
+    "IP": "::1",
+    "Port": 20002,
     "neighbors": ["nodeA", "nodeC"],
     "RREQ_MESSAGE": [],
     "ROUTING_TABLE": []
@@ -27,8 +27,8 @@ nodeB = {
 nodeA = {
     "ID": 1,
     "Name": "nodeA",
-    "IP": "127.0.0.1",
-    "Port": 1234,
+    "IP": "::1",
+    "Port": 20001,
     "neighbors": ["nodeB"],
     "RREQ_MESSAGE": [],
     "ROUTING_TABLE": []
