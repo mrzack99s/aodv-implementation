@@ -4,7 +4,6 @@ import threading
 import time
 from datetime import datetime
 
-
 def A(routing_table):
     idleTime = {}
     while True:
@@ -37,6 +36,7 @@ def A(routing_table):
 
 
 class UDPSocketServer(threading.Thread):
+    bufferSize = 2048
 
     def __init__(self, listNode, nodeName):
 
@@ -59,20 +59,20 @@ class UDPSocketServer(threading.Thread):
 
     def run(self):
 
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind((self.node["IP"], self.node["Port"]))
-        s.listen(5)
+        udpServer = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
+        udpServer.bind((self.node["IP"], self.node["Port"]))
 
         self.runExpireTimer()
 
         while True:
 
             # now our endpoint knows about the OTHER endpoint.
-            clientsocket, address = s.accept()
-            if clientsocket:
-                # print("At node " + self.node["Name"])
+            revMessage = udpServer.recvfrom(UDPSocketServer.bufferSize)[0]
+            if revMessage:
 
-                revMessage = json.loads(clientsocket.recv(1024).decode())
+                revMessage = revMessage.decode()
+                revMessage = json.loads(revMessage)
+
                 if revMessage["isRREQ"] and revMessage["sourceAddr"] != self.node["Name"]:
                     self.aodvRREQ(revMessage)
 
@@ -118,11 +118,10 @@ class UDPSocketServer(threading.Thread):
                             # print(neighbor)
                             self.__sendRequest(neighborName=neighbor, isRREQ=True)
 
-                clientsocket.close()
 
 
     def __sendRequest(self, neighborName=None, isRREQ=True):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as ss:
+        with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
             ss.connect((self.listNode[neighborName]["IP"], self.listNode[neighborName]["Port"]))
             if isRREQ:
                 ss.send(json.dumps(self.rreq_data_packet).encode())
@@ -131,7 +130,7 @@ class UDPSocketServer(threading.Thread):
             ss.close()
 
     def requestDiscoveryPath(self, toNode=None):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as ss:
+        with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
             ss.connect((self.node["IP"], self.node["Port"]))
             rreq_data_packet = {
                 "sourceAddr": self.node["Name"],
