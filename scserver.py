@@ -60,7 +60,7 @@ class UDPSocketServer(threading.Thread):
     def run(self):
 
         udpServer = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
-        udpServer.bind((self.node["IP"], self.node["Port"]))
+        udpServer.bind(("::", self.node["Port"]))
 
         self.runExpireTimer()
 
@@ -68,6 +68,7 @@ class UDPSocketServer(threading.Thread):
 
             # now our endpoint knows about the OTHER endpoint.
             revMessage = udpServer.recvfrom(UDPSocketServer.bufferSize)[0]
+
             if revMessage:
 
                 revMessage = revMessage.decode()
@@ -121,17 +122,18 @@ class UDPSocketServer(threading.Thread):
 
 
     def __sendRequest(self, neighborName=None, isRREQ=True):
+        sockAddr = socket.getaddrinfo(self.listNode[neighborName]["IP"], self.listNode[neighborName]["Port"], family=socket.AF_INET6, proto=socket.IPPROTO_UDP)
         with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
-            ss.connect((self.listNode[neighborName]["IP"], self.listNode[neighborName]["Port"]))
             if isRREQ:
-                ss.send(json.dumps(self.rreq_data_packet).encode())
+                ss.sendto(json.dumps(self.rreq_data_packet).encode(),sockAddr[0][4])
             else:
-                ss.send(json.dumps(self.rrep_data_packet).encode())
+                ss.sendto(json.dumps(self.rrep_data_packet).encode(),sockAddr[0][4])
             ss.close()
 
     def requestDiscoveryPath(self, toNode=None):
+        sockAddr = socket.getaddrinfo(self.node["IP"], self.node["Port"], family=socket.AF_INET6, proto=socket.IPPROTO_UDP)
+
         with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
-            ss.connect((self.node["IP"], self.node["Port"]))
             rreq_data_packet = {
                 "sourceAddr": self.node["Name"],
                 "seqSource": 1,
@@ -146,7 +148,7 @@ class UDPSocketServer(threading.Thread):
             rreq_data_packet["RequestTime"].update({
                 self.node["Name"]: datetime.timestamp(datetime.now())
             })
-            ss.send(json.dumps(rreq_data_packet).encode())
+            ss.sendto(json.dumps(rreq_data_packet).encode(),sockAddr[0][4])
             ss.close()
 
     def getRoutingTable(self):
