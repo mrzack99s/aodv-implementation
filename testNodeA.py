@@ -1,51 +1,24 @@
 import json
+import socket
 import time
 import scserver
 
-listNode = {}
 
-nodeC = {
-    "ID": 3,
-    "Name": "nodeC",
-    "IP": "::1",
-    "Port": 20003,
-    "neighbors": ["nodeB"],
-    "RREQ_MESSAGE": [],
-    "ROUTING_TABLE": [],
-}
+def getListNodeFromJson():
+    with open('listNode.json') as json_file:
+        return json.load(json_file)
 
-nodeB = {
-    "ID": 2,
-    "Name": "nodeB",
-    "IP": "fe80::ba27:ebff:fe59:aa80",
-    "Port": 20002,
-    "neighbors": ["nodeA", "nodeC"],
-    "RREQ_MESSAGE": [],
-    "ROUTING_TABLE": []
-}
 
-nodeA = {
-    "ID": 1,
-    "Name": "nodeA",
-    "IP": "fe80::ba27:ebff:feaa:40aa",
-    "Port": 20001,
-    "neighbors": ["nodeB"],
-    "RREQ_MESSAGE": [],
-    "ROUTING_TABLE": []
-}
+listNode = getListNodeFromJson()
+hostname = socket.gethostname()
+ownIPv6 = socket.getaddrinfo(hostname, None, socket.AF_INET6,socket.SOCK_DGRAM)[0][4][0]
 
-listNode.update({
-    "nodeA": nodeA,
-    "nodeB": nodeB,
-    "nodeC": nodeC
-})
-
-udpServer = scserver.UDPSocketServer(listNode, 'nodeA')
+udpServer = scserver.UDPSocketServer(listNode, ownIPv6)
 
 if __name__ == "__main__":
     udpServer.start()
-    udpServer.requestDiscoveryPath(toNode="nodeB")
-    #udpServer2.requestDiscoveryPath(toNode="nodeA")
+    udpServer.requestDiscoveryPath(toNodeIP="fe80::ba27:ebff:fe59:aa80")
+    # udpServer2.requestDiscoveryPath(toNode="nodeA")
     time.sleep(5)
     udpServer.getRoutingTable()
     time.sleep(60)

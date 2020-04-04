@@ -1,0 +1,36 @@
+{
+  "fe80::ba27:ebff:feaa:40aa": {
+    "ID": 0,
+    "Name": "nodeA",
+    "IP": "fe80::ba27:ebff:feaa:40aa",
+    "Port": 20001,
+    "neighbors": [
+      "fe80::ba27:ebff:fe59:aa80"
+    ],
+    "RREQ_MESSAGE": [],
+    "ROUTING_TABLE": []
+  },
+  "fe80::ba27:ebff:fe59:aa80": {
+    "ID": 1,
+    "Name": "nodeB",
+    "IP": "fe80::ba27:ebff:fe59:aa80",
+    "Port": 20002,
+    "neighbors": [
+      "fe80::ba27:ebff:feaa:40aa",
+      "fe80::c7a3:ec06:398:bb27"
+    ],
+    "RREQ_MESSAGE": [],
+    "ROUTING_TABLE": []
+  },
+  "fe80::c7a3:ec06:398:bb27": {
+    "ID": 2,
+    "Name": "nodeC",
+    "IP": "fe80::c7a3:ec06:398:bb27",
+    "Port": 20003,
+    "neighbors": [
+      "fe80::ba27:ebff:fe59:aa80"
+    ],
+    "RREQ_MESSAGE": [],
+    "ROUTING_TABLE": []
+  }
+}
