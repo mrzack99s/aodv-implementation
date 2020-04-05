@@ -4,6 +4,7 @@
     "Name": "nodeA",
     "IP": "fe80::ba27:ebff:feaa:40aa",
     "Port": 20001,
+    "intMacAddr": "b8:27:eb:aa:40:aa",
     "neighbors": [
       "fe80::ba27:ebff:fe59:aa80"
     ],
@@ -15,6 +16,7 @@
     "Name": "nodeB",
     "IP": "fe80::ba27:ebff:fe59:aa80",
     "Port": 20002,
+    "intMacAddr": "b8:27:eb:59:aa:80",
     "neighbors": [
       "fe80::ba27:ebff:feaa:40aa",
       "fe80::c7a3:ec06:398:bb27"
@@ -27,6 +29,7 @@
     "Name": "nodeC",
     "IP": "fe80::c7a3:ec06:398:bb27",
     "Port": 20003,
+    "intMacAddr": "00:00:00:00:00:00",
     "neighbors": [
       "fe80::ba27:ebff:fe59:aa80"
     ],
