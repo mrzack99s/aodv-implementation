@@ -4,6 +4,7 @@ import threading
 import time
 from datetime import datetime
 
+
 def A(routing_table):
     idleTime = {}
     while True:
@@ -16,16 +17,16 @@ def A(routing_table):
                     idleTime[route["ID"]] = divmod(diffTime.seconds, 60)[0]
                 except:
                     idleTime.update({
-                        route["ID"]:divmod(diffTime.seconds, 60)[0]
+                        route["ID"]: divmod(diffTime.seconds, 60)[0]
                     })
 
                 if idleTime[route["ID"]] >= route["Lifetime"]:
-                    print("Route ID ",route["ID"],"is expire")
+                    print("Route ID ", route["ID"], "is expire")
                     routing_table.pop(routing_table.index(route))
 
                 # if checkingTime >= routing_table["Lifetime"]:
                 #     print("Expire")
-            #print(datetime.now().second - toDatetime.second)
+            # print(datetime.now().second - toDatetime.second)
 
         time.sleep(10)
     # while True:
@@ -51,7 +52,7 @@ class UDPSocketServer(threading.Thread):
         return
 
     def runExpireTimer(self):
-        print("################## Timer at "+self.node["Name"]+" Start ###############")
+        print("################## Timer at " + self.node["Name"] + " Start ###############")
         self.trickFirstRouting = True
         t = threading.Thread(target=A, args=(self.node["ROUTING_TABLE"],))
         t.setDaemon(True)
@@ -73,7 +74,6 @@ class UDPSocketServer(threading.Thread):
 
                 revMessage = revMessage.decode()
                 revMessage = json.loads(revMessage)
-
 
                 if revMessage["isRREQ"] and revMessage["sourceAddr"] != self.node["IP"]:
                     self.aodvRREQ(revMessage)
@@ -112,6 +112,9 @@ class UDPSocketServer(threading.Thread):
                             if neighbor != self.rrep_data_packet["sourceAddr"]:
                                 # print(neighbor)
                                 self.__sendRequest(neighborIP=neighbor, isRREQ=False)
+                    else:
+                        self.rreq_data_packet = None
+                        self.rrep_data_packet = None
                 else:
                     self.rreq_data_packet = revMessage
 
@@ -120,19 +123,19 @@ class UDPSocketServer(threading.Thread):
                             # print(neighbor)
                             self.__sendRequest(neighborIP=neighbor, isRREQ=True)
 
-
-
     def __sendRequest(self, neighborIP=None, isRREQ=True):
-        sockAddr = socket.getaddrinfo(self.listNode[neighborIP]["IP"], self.listNode[neighborIP]["Port"], family=socket.AF_INET6, proto=socket.IPPROTO_UDP)
+        sockAddr = socket.getaddrinfo(self.listNode[neighborIP]["IP"], self.listNode[neighborIP]["Port"],
+                                      family=socket.AF_INET6, proto=socket.IPPROTO_UDP)
         with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
             if isRREQ:
-                ss.sendto(json.dumps(self.rreq_data_packet).encode(),sockAddr[0][4])
+                ss.sendto(json.dumps(self.rreq_data_packet).encode(), sockAddr[0][4])
             else:
-                ss.sendto(json.dumps(self.rrep_data_packet).encode(),sockAddr[0][4])
+                ss.sendto(json.dumps(self.rrep_data_packet).encode(), sockAddr[0][4])
             ss.close()
 
     def requestDiscoveryPath(self, toNodeIP=None):
-        sockAddr = socket.getaddrinfo(self.node["IP"], self.node["Port"], family=socket.AF_INET6, proto=socket.IPPROTO_UDP)
+        sockAddr = socket.getaddrinfo(self.node["IP"], self.node["Port"], family=socket.AF_INET6,
+                                      proto=socket.IPPROTO_UDP)
 
         with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
             rreq_data_packet = {
@@ -149,7 +152,7 @@ class UDPSocketServer(threading.Thread):
             rreq_data_packet["RequestTime"].update({
                 self.node["IP"]: datetime.timestamp(datetime.now())
             })
-            ss.sendto(json.dumps(rreq_data_packet).encode(),sockAddr[0][4])
+            ss.sendto(json.dumps(rreq_data_packet).encode(), sockAddr[0][4])
             ss.close()
 
     def getRoutingTable(self):
@@ -180,7 +183,7 @@ class UDPSocketServer(threading.Thread):
         self.rrep_data_packet["hopCount"] += 1
 
         rrep_message = {
-            "ID":len(self.node["ROUTING_TABLE"])+1,
+            "ID": len(self.node["ROUTING_TABLE"]) + 1,
             "destAddr": self.rrep_data_packet["sourceAddr"],
             "nextHop": self.rrep_data_packet["sentFrom"],
             "hopCount": self.rrep_data_packet["hopCount"],
@@ -200,5 +203,3 @@ class UDPSocketServer(threading.Thread):
 
         self.node["ROUTING_TABLE"].append(rrep_message)
         self.rrep_data_packet["sentFrom"] = self.node["IP"]
-
-
