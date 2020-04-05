@@ -79,63 +79,74 @@ class UDPSocketServer(threading.Thread):
                 revMessage = revMessage.decode()
                 revMessage = json.loads(revMessage)
 
-                # Is RREQ and not source node
-                if revMessage["isRREQ"] and revMessage["sourceAddr"] != self.node["IP"]:
-                    self.aodvRREQ(revMessage)
+                if revMessage["mode"] == 0:
 
-                # Is RREP and not source node ( Destination from source )
-                elif not revMessage["isRREQ"] and revMessage["sourceAddr"] != self.node["IP"]:
-                    self.aodvRREP(revMessage)
+                    # Is RREQ and not source node
+                    if revMessage["data"]["isRREQ"] and revMessage["data"]["sourceAddr"] != self.node["IP"]:
+                        self.aodvRREQ(revMessage["data"])
 
-                # RREQ
-                if self.rrep_data_packet is None and revMessage["sourceAddr"] != self.node["IP"]:
+                    # Is RREP and not source node ( Destination from source )
+                    elif not revMessage["data"]["isRREQ"] and revMessage["data"]["sourceAddr"] != self.node["IP"]:
+                        self.aodvRREP(revMessage["data"])
 
-                    # From source boardcast to neighbor
-                    if self.node["IP"] != self.rreq_data_packet["destAddr"] and self.node["IP"] != \
-                            self.rreq_data_packet["sourceAddr"]:
-                        # print(self.node["Name"])
+                    # RREQ
+                    if self.rrep_data_packet is None and revMessage["data"]["sourceAddr"] != self.node["IP"]:
+
+                        # From source boardcast to neighbor
+                        if self.node["IP"] != self.rreq_data_packet["destAddr"] and self.node["IP"] != \
+                                self.rreq_data_packet["sourceAddr"]:
+                            # print(self.node["Name"])
+                            for neighbor in self.node["neighbors"]:
+                                if neighbor != self.rreq_data_packet["sourceAddr"]:
+                                    # print(neighbor)
+                                    self.__sendRequest(neighborIP=neighbor, isRREQ=True)
+
+                        # At Destination node is end of RREQ packet and set to RREP packet then sent back from next hop
+                        # of RREQ message
+                        elif self.node["IP"] == self.rreq_data_packet["destAddr"]:
+                            self.rrep_data_packet = {
+                                "sourceAddr": self.rreq_data_packet["destAddr"],
+                                "destAddr": self.rreq_data_packet["sourceAddr"],
+                                "destSeq": 120,
+                                "hopCount": 0,
+                                "sentFrom": self.node["IP"],
+                                "isRREQ": False,
+                                "Lifetime": 1  # if 0 is not expire || unit is min
+                            }
+
+                            self.__sendRequest(neighborIP=self.node["RREQ_MESSAGE"][-1]["nextHop"], isRREQ=False)
+
+                    # RREP
+                    elif self.rrep_data_packet is not None and revMessage["data"]["sourceAddr"] != self.node["IP"]:
+
+                        # RREP packet then sent back from next hop of RREQ message
+                        if self.node["IP"] != self.rrep_data_packet["destAddr"] and self.node["IP"] != \
+                                self.rrep_data_packet["sourceAddr"]:
+                            # print(self.node["Name"])
+                            self.__sendRequest(neighborIP=self.node["RREQ_MESSAGE"][-1]["nextHop"], isRREQ=False)
+
+                        # If this node is RREP destination
+                        else:
+                            self.rreq_data_packet = None
+                            self.rrep_data_packet = None
+
+                    # If from requestDiscoveryPath
+                    else:
+                        self.rreq_data_packet = revMessage["data"]
+
                         for neighbor in self.node["neighbors"]:
                             if neighbor != self.rreq_data_packet["sourceAddr"]:
                                 # print(neighbor)
                                 self.__sendRequest(neighborIP=neighbor, isRREQ=True)
 
-                    # At Destination node is end of RREQ packet and set to RREP packet then sent back from next hop
-                    # of RREQ message
-                    elif self.node["IP"] == self.rreq_data_packet["destAddr"]:
-                        self.rrep_data_packet = {
-                            "sourceAddr": self.rreq_data_packet["destAddr"],
-                            "destAddr": self.rreq_data_packet["sourceAddr"],
-                            "destSeq": 120,
-                            "hopCount": 0,
-                            "sentFrom": self.node["IP"],
-                            "isRREQ": False,
-                            "Lifetime": 1  # if 0 is not expire || unit is min
-                        }
+                elif revMessage["mode"] == 1:
 
-                        self.__sendRequest(neighborIP=self.node["RREQ_MESSAGE"][-1]["nextHop"], isRREQ=False)
+                    print("listNode.json is update!")
+                    self.listNode = revMessage["data"]
+                    self.writeToListNodeJson()
 
-                # RREP
-                elif self.rrep_data_packet is not None and revMessage["sourceAddr"] != self.node["IP"]:
+                    print(json.dumps(self.listNode,indent=2))
 
-                    # RREP packet then sent back from next hop of RREQ message
-                    if self.node["IP"] != self.rrep_data_packet["destAddr"] and self.node["IP"] != \
-                            self.rrep_data_packet["sourceAddr"]:
-                        # print(self.node["Name"])
-                        self.__sendRequest(neighborIP=self.node["RREQ_MESSAGE"][-1]["nextHop"], isRREQ=False)
-
-                    # If this node is RREP destination
-                    else:
-                        self.rreq_data_packet = None
-                        self.rrep_data_packet = None
-
-                # If from requestDiscoveryPath
-                else:
-                    self.rreq_data_packet = revMessage
-
-                    for neighbor in self.node["neighbors"]:
-                        if neighbor != self.rreq_data_packet["sourceAddr"]:
-                            # print(neighbor)
-                            self.__sendRequest(neighborIP=neighbor, isRREQ=True)
 
     def __sendRequest(self, neighborIP=None, isRREQ=True):
 
@@ -144,10 +155,13 @@ class UDPSocketServer(threading.Thread):
                                       family=socket.AF_INET6, proto=socket.IPPROTO_UDP)
 
         with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
-            if isRREQ:
-                ss.sendto(json.dumps(self.rreq_data_packet).encode(), sockAddr[0][4])
-            else:
-                ss.sendto(json.dumps(self.rrep_data_packet).encode(), sockAddr[0][4])
+
+            toNodeMsg = {
+                "mode": 0,
+                "data": self.rreq_data_packet if isRREQ else self.rrep_data_packet
+            }
+
+            ss.sendto(json.dumps(toNodeMsg).encode(), sockAddr[0][4])
             ss.close()
 
     def requestDiscoveryPath(self, toNodeIP=None):
@@ -169,7 +183,13 @@ class UDPSocketServer(threading.Thread):
             rreq_data_packet["RequestTime"].update({
                 self.node["IP"]: datetime.timestamp(datetime.now())
             })
-            ss.sendto(json.dumps(rreq_data_packet).encode(), sockAddr[0][4])
+
+            toNodeMsg = {
+                "mode": 0,
+                "data": rreq_data_packet
+            }
+
+            ss.sendto(json.dumps(toNodeMsg).encode(), sockAddr[0][4])
             ss.close()
 
     def getRoutingTable(self):
@@ -220,3 +240,7 @@ class UDPSocketServer(threading.Thread):
 
         self.node["ROUTING_TABLE"].append(rrep_message)
         self.rrep_data_packet["sentFrom"] = self.node["IP"]
+
+    def writeToListNodeJson(self):
+        with open('listNode.json', 'w') as outfile:
+            json.dump(self.listNode, outfile, indent=2)
