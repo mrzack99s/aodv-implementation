@@ -1,10 +1,14 @@
 import json
+import socket
 
 from flask import Flask, request
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app, resources={r'/*': {'origins': '*'}})
+
+hostname = socket.gethostname()
+ownIPv6 = socket.getaddrinfo(hostname, None, socket.AF_INET6, socket.SOCK_DGRAM)[0][4][0]
 
 
 def getListNodeFromJson():
@@ -20,9 +24,23 @@ def writeToListNodeJson():
         json.dump(listNode, outfile, indent=2)
 
 
+def sendRequest(neighborIP=None):
+    # Get socket address
+    sockAddr = socket.getaddrinfo(listNode[neighborIP]["IP"], listNode[neighborIP]["Port"],
+                                  family=socket.AF_INET6, proto=socket.IPPROTO_UDP)
+
+    toNodeMsg = {
+        "mode": 1,
+        "data": listNode
+    }
+
+    with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
+        ss.sendto(json.dumps(toNodeMsg).encode(), sockAddr[0][4])
+        ss.close()
+
+
 @app.route('/append', methods=['POST'])
 def append():
-
     dataLoad = request.json
 
     ipAddr = dataLoad['ipAddr']
@@ -46,15 +64,21 @@ def append():
     }
 
     listNode.update({
-        ipAddr:node
+        ipAddr: node
     })
 
-    writeToListNodeJson()
-    return json.dumps(node,indent=2)
+    # Update own node
+    sendRequest(ownIPv6)
+
+    for myNeighbor in listNode[ownIPv6]["neighbors"]:
+        sendRequest(myNeighbor)
+
+    return json.dumps(node, indent=2)
+
 
 @app.route('/getListNode', methods=['GET'])
 def getListNode():
-    return json.dumps(listNode,indent=2)
+    return json.dumps(listNode, indent=2)
 
 
 if __name__ == '__main__':
