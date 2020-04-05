@@ -1,5 +1,6 @@
 import json
 import socket
+import subprocess
 import threading
 import time
 from datetime import datetime
@@ -21,6 +22,10 @@ def A(routing_table):
                     })
 
                 if idleTime[route["ID"]] >= route["Lifetime"]:
+
+                    command = "ip -6 route del " + route["nextHop"]
+                    subprocess.call(command, shell=True)
+
                     print("Route ID ", route["ID"], "is expire")
                     routing_table.pop(routing_table.index(route))
 
@@ -145,8 +150,7 @@ class UDPSocketServer(threading.Thread):
                     self.listNode = revMessage["data"]
                     self.writeToListNodeJson()
 
-                    print(json.dumps(self.listNode,indent=2))
-
+                    print(json.dumps(self.listNode, indent=2))
 
     def __sendRequest(self, neighborIP=None, isRREQ=True):
 
@@ -155,7 +159,6 @@ class UDPSocketServer(threading.Thread):
                                       family=socket.AF_INET6, proto=socket.IPPROTO_UDP)
 
         with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
-
             toNodeMsg = {
                 "mode": 0,
                 "data": self.rreq_data_packet if isRREQ else self.rrep_data_packet
@@ -239,6 +242,10 @@ class UDPSocketServer(threading.Thread):
         })
 
         self.node["ROUTING_TABLE"].append(rrep_message)
+
+        command = "ip -6 route add "+ rrep_message["destAddr"] +" dev wlan0 via "+ rrep_message["nextHop"]
+        subprocess.call(command, shell=True)
+
         self.rrep_data_packet["sentFrom"] = self.node["IP"]
 
     def writeToListNodeJson(self):

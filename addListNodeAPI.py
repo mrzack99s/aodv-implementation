@@ -46,6 +46,7 @@ def append():
     ipAddr = dataLoad['ipAddr']
     nodeName = dataLoad['nodeName']
     port = dataLoad['port']
+    intMacAddr = dataLoad['intMacAddr']
     neighbor = dataLoad['neighbor']
 
     try:
@@ -58,6 +59,7 @@ def append():
         "Name": nodeName,
         "IP": ipAddr,
         "Port": int(port),
+        "intMacAddr": intMacAddr,
         "neighbors": neighbor,
         "RREQ_MESSAGE": [],
         "ROUTING_TABLE": []
