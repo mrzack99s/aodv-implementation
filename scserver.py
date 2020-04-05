@@ -60,28 +60,37 @@ class UDPSocketServer(threading.Thread):
 
     def run(self):
 
+        ## Start UDP Server
         udpServer = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
         udpServer.bind(("::", self.node["Port"]))
 
+        ## Call to Expiretimer tread
         self.runExpireTimer()
 
         while True:
 
-            # now our endpoint knows about the OTHER endpoint.
+            # Receive the data from udp socket
             revMessage = udpServer.recvfrom(UDPSocketServer.bufferSize)[0]
 
+            # If have message
             if revMessage:
 
+                # Conevert message to dictionary
                 revMessage = revMessage.decode()
                 revMessage = json.loads(revMessage)
 
+                # Is RREQ and not source node
                 if revMessage["isRREQ"] and revMessage["sourceAddr"] != self.node["IP"]:
                     self.aodvRREQ(revMessage)
 
+                # Is RREP and not source node ( Destination from source )
                 elif not revMessage["isRREQ"] and revMessage["sourceAddr"] != self.node["IP"]:
                     self.aodvRREP(revMessage)
 
+                # RREQ
                 if self.rrep_data_packet is None and revMessage["sourceAddr"] != self.node["IP"]:
+
+                    # From source boardcast to neighbor
                     if self.node["IP"] != self.rreq_data_packet["destAddr"] and self.node["IP"] != \
                             self.rreq_data_packet["sourceAddr"]:
                         # print(self.node["Name"])
@@ -90,6 +99,8 @@ class UDPSocketServer(threading.Thread):
                                 # print(neighbor)
                                 self.__sendRequest(neighborIP=neighbor, isRREQ=True)
 
+                    # At Destination node is end of RREQ packet and set to RREP packet then sent back from next hop
+                    # of RREQ message
                     elif self.node["IP"] == self.rreq_data_packet["destAddr"]:
                         self.rrep_data_packet = {
                             "sourceAddr": self.rreq_data_packet["destAddr"],
@@ -103,18 +114,21 @@ class UDPSocketServer(threading.Thread):
 
                         self.__sendRequest(neighborIP=self.node["RREQ_MESSAGE"][-1]["nextHop"], isRREQ=False)
 
-
+                # RREP
                 elif self.rrep_data_packet is not None and revMessage["sourceAddr"] != self.node["IP"]:
+
+                    # RREP packet then sent back from next hop of RREQ message
                     if self.node["IP"] != self.rrep_data_packet["destAddr"] and self.node["IP"] != \
                             self.rrep_data_packet["sourceAddr"]:
                         # print(self.node["Name"])
-                        for neighbor in self.node["neighbors"]:
-                            if neighbor != self.rrep_data_packet["sourceAddr"]:
-                                # print(neighbor)
-                                self.__sendRequest(neighborIP=neighbor, isRREQ=False)
+                        self.__sendRequest(neighborIP=self.node["RREQ_MESSAGE"][-1]["nextHop"], isRREQ=False)
+
+                    # If this node is RREP destination
                     else:
                         self.rreq_data_packet = None
                         self.rrep_data_packet = None
+
+                # If from requestDiscoveryPath
                 else:
                     self.rreq_data_packet = revMessage
 
@@ -124,8 +138,11 @@ class UDPSocketServer(threading.Thread):
                             self.__sendRequest(neighborIP=neighbor, isRREQ=True)
 
     def __sendRequest(self, neighborIP=None, isRREQ=True):
+
+        # Get socket address
         sockAddr = socket.getaddrinfo(self.listNode[neighborIP]["IP"], self.listNode[neighborIP]["Port"],
                                       family=socket.AF_INET6, proto=socket.IPPROTO_UDP)
+
         with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
             if isRREQ:
                 ss.sendto(json.dumps(self.rreq_data_packet).encode(), sockAddr[0][4])
