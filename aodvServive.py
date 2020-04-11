@@ -110,7 +110,8 @@ class AODVService(threading.Thread):
 
                     # Is RREQ and not source node
                     if revMessage["data"]["isRREQ"] and revMessage["data"]["sourceAddr"] != self.node["IP"]:
-                        self.node["neighbors"] = neighborDiscovery.neighborDiscovery()
+
+                        self.neighborDiscovery()
 
                         print("Recieve RREQ packet")
                         self.aodvRREQ(revMessage["data"])
@@ -174,16 +175,44 @@ class AODVService(threading.Thread):
                     # If from requestDiscoveryPath
                     else:
 
-                        self.node["neighbors"] = neighborDiscovery.neighborDiscovery()
-
                         self.rreq_data_packet = revMessage["data"]
+                        self.neighborDiscovery()
 
                         for neighbor in self.node["neighbors"]:
                             if neighbor != self.rreq_data_packet["sourceAddr"]:
                                 # print(neighbor)
                                 self.__sendRequest(neighborIP=neighbor, isRREQ=True)
 
-            
+                # Send message
+                elif revMessage["mode"] == 1:
+                    if self.node["IP"] != revMessage["data"]["destAddr"]:
+
+                        if shareMemoryData.exists("routing_table"):
+                            routing_table = json.loads(shareMemoryData.get("routing_table"))
+                            for route in routing_table:
+                                if route["destAddr"] == revMessage["data"]["destAddr"]:
+                                    self.__sendData(IP=route["nextHop"], data=revMessage)
+
+                    else:
+                        message_recv = revMessage["data"]
+                        shareMemoryData.set("message_recv", json.dumps(message_recv))
+
+    def neighborDiscovery(self):
+        neighbors = neighborDiscovery.neighborDiscovery()
+        self.node["neighbors"] = neighbors
+
+        if len(neighbors) != 0:
+            return True
+
+    def __sendData(self, IP=None, data=None):
+
+        # Get socket address
+        sockAddr = socket.getaddrinfo(IP, globalPort,
+                                      family=socket.AF_INET6, proto=socket.IPPROTO_UDP)
+
+        with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
+            ss.sendto(json.dumps(data).encode(), sockAddr[0][4])
+            ss.close()
 
     def __sendRequest(self, neighborIP=None, isRREQ=True):
 
@@ -202,15 +231,20 @@ class AODVService(threading.Thread):
 
     def requestDiscoveryPath(self, toNodeIP=None):
 
+        while not self.neighborDiscovery():
+            pass
+
         if shareMemoryData.exists("routing_table"):
             routing_table = json.loads(shareMemoryData.get("routing_table"))
             for route in routing_table:
                 if toNodeIP == route["destAddr"]:
-                    return
-
+                    return {
+                        "status": "haveRoute",
+                        "response": route
+                    }
 
         sockAddr = socket.getaddrinfo(self.node["IP"], self.node["Port"], family=socket.AF_INET6,
-                                          proto=socket.IPPROTO_UDP)
+                                      proto=socket.IPPROTO_UDP)
 
         with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
 
@@ -250,8 +284,10 @@ class AODVService(threading.Thread):
             ss.sendto(json.dumps(toNodeMsg).encode(), sockAddr[0][4])
             ss.close()
 
-            return "Requested"
-
+            return {
+                "status": "wait",
+                "response": None
+            }
 
     def aodvRREQ(self, revMessage):
 
@@ -313,3 +349,33 @@ class AODVService(threading.Thread):
         # subprocess.call(command, shell=True)
 
         self.rrep_data_packet["sentFrom"] = self.node["IP"]
+
+    def sendMessage(self, recv=None):
+
+        routeTable = recv["route"]
+        sockAddr = socket.getaddrinfo(routeTable["nextHop"], globalPort,
+                                      family=socket.AF_INET6, proto=socket.IPPROTO_UDP)
+
+        routingTable = []
+        if shareMemoryData.exists("routing_table"):
+            routingTable = json.loads(shareMemoryData.get("routing_table"))
+
+        with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
+
+            toNodeMsg = {
+                "mode": 1,
+                "data": {
+                    "sentFrom": self.node["IP"],
+                    "destAddr": routeTable["destAddr"],
+                    "message": recv["message"],
+                    "timestamp": datetime.timestamp(datetime.now())
+                }
+            }
+
+            ss.sendto(json.dumps(toNodeMsg).encode(), sockAddr[0][4])
+            ss.close()
+
+        for route in routingTable:
+            if route["destAddr"] == routeTable["destAddr"]:
+                routingTable[routingTable.index(route)]["Lastest_used"] = datetime.timestamp(datetime.now())
+                shareMemoryData.set("routing_table", json.dumps(routingTable))
