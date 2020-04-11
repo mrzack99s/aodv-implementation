@@ -1,18 +1,25 @@
 import json
 import socket
-import subprocess
+import redis
 import threading
 import time
 from datetime import datetime
-import neighborDiscovery, pickle
+import neighborDiscovery
 
 globalPort = 20001
+shareMemoryData = redis.StrictRedis(host="::1", port=6379, password="passwd", decode_responses=True)
 
-def TimeChecker(routing_table):
+
+def TimeChecker():
     idleTime = {}
+
     while True:
-        if routing_table:
+
+        if shareMemoryData.exists("routing_table"):
+
+            routing_table = json.loads(shareMemoryData.get("routing_table"))
             for route in routing_table:
+
                 toDatetime = datetime.fromtimestamp(route["Lastest_used"])
                 diffTime = datetime.now() - toDatetime
 
@@ -24,23 +31,20 @@ def TimeChecker(routing_table):
                     })
 
                 if idleTime[route["ID"]] >= route["Lifetime"]:
-                    command = "ip -6 route del " + route["nextHop"]
-                    subprocess.call(command, shell=True)
-
+                    # command = "ip -6 route del " + route["destAddr"]
+                    # subprocess.call(command, shell=True)
                     print("Route ID ", route["ID"], "is expire")
                     routing_table.pop(routing_table.index(route))
 
-            routingtablefile = open("routing_table.mrz", 'wb')
-            pickle.dump(routing_table,routingtablefile)
-            routingtablefile.close()
+                    shareMemoryData.set("routing_table", json.dumps(routing_table))
 
-            #print(routing_table)
-                # if checkingTime >= routing_table["Lifetime"]:
-                #     print("Expire")
+            # print(routing_table)
+            # if checkingTime >= routing_table["Lifetime"]:
+            #     print("Expire")
             # print(datetime.now().second - toDatetime.second)
 
-
         time.sleep(1)
+
     # while True:
     #     if routing_table:
     #         divv = datetime.fromtimestamp(routing_table["Lastest_used"])
@@ -61,21 +65,23 @@ class AODVService(threading.Thread):
             "IP": str(ownIPv6),
             "Port": globalPort,
             "neighbors": None,
-            "RREQ_MESSAGE": [],
-            "ROUTING_TABLE": []
         }
 
+        self.RREQ_MESSAGE = []
         self.rreq_data_packet = None
         self.rrep_data_packet = None
         self.nextValRREQId = 1
         self.destTinationSeq = {}
+
+        shareMemoryData.flushdb()
+        shareMemoryData.set("nodeDetail", json.dumps(self.node))
 
     def getNode(self):
         return
 
     def runExpireTimer(self):
         print("################## Timer at " + self.node["IP"] + " Start ###############")
-        t = threading.Thread(target=TimeChecker, args=(self.node["ROUTING_TABLE"],))
+        t = threading.Thread(target=TimeChecker)
         t.setDaemon(True)
         t.start()
 
@@ -105,10 +111,14 @@ class AODVService(threading.Thread):
                     # Is RREQ and not source node
                     if revMessage["data"]["isRREQ"] and revMessage["data"]["sourceAddr"] != self.node["IP"]:
                         self.node["neighbors"] = neighborDiscovery.neighborDiscovery()
+
+                        print("Recieve RREQ packet")
                         self.aodvRREQ(revMessage["data"])
 
                     # Is RREP and not source node ( Destination from source )
                     elif not revMessage["data"]["isRREQ"] and revMessage["data"]["sourceAddr"] != self.node["IP"]:
+
+                        print("Recieve RREP packet")
                         self.aodvRREP(revMessage["data"])
 
                     # RREQ
@@ -126,6 +136,8 @@ class AODVService(threading.Thread):
                         # At Destination node is end of RREQ packet and set to RREP packet then sent back from next hop
                         # of RREQ message
                         elif self.node["IP"] == self.rreq_data_packet["destAddr"]:
+
+                            self.aodvRREQ(revMessage["data"])
                             self.rrep_data_packet = {
                                 "sourceAddr": self.rreq_data_packet["destAddr"],
                                 "destAddr": self.rreq_data_packet["sourceAddr"],
@@ -136,11 +148,13 @@ class AODVService(threading.Thread):
                                 "Lifetime": 1  # if 0 is not expire || unit is min
                             }
 
-                            for message in self.node["RREQ_MESSAGE"]:
+                            for message in self.RREQ_MESSAGE:
                                 if self.rrep_data_packet["destSeq"] == message["destSeq"]:
                                     self.__sendRequest(neighborIP=message["nextHop"], isRREQ=False)
+                                    self.RREQ_MESSAGE.remove(message)
 
-                            self.node["RREQ_MESSAGE"] = []
+                            self.rrep_data_packet = None
+
 
                     # RREP
                     elif self.rrep_data_packet is not None and revMessage["data"]["sourceAddr"] != self.node["IP"]:
@@ -149,21 +163,19 @@ class AODVService(threading.Thread):
                         if self.node["IP"] != self.rrep_data_packet["destAddr"] and self.node["IP"] != \
                                 self.rrep_data_packet["sourceAddr"]:
                             # print(self.node["Name"])
-                            for message in self.node["RREQ_MESSAGE"]:
+                            for message in self.RREQ_MESSAGE:
                                 if self.rrep_data_packet["destSeq"] == message["destSeq"]:
                                     self.__sendRequest(neighborIP=message["nextHop"], isRREQ=False)
+                                    self.RREQ_MESSAGE.remove(message)
 
-                            self.node["RREQ_MESSAGE"] = []
+                        self.rrep_data_packet = None
 
-                        # If this node is RREP destination
-                        else:
-                            self.node["RREQ_MESSAGE"] = []
-                            self.rrep_data_packet = None
 
                     # If from requestDiscoveryPath
                     else:
 
                         self.node["neighbors"] = neighborDiscovery.neighborDiscovery()
+
                         self.rreq_data_packet = revMessage["data"]
 
                         for neighbor in self.node["neighbors"]:
@@ -171,6 +183,7 @@ class AODVService(threading.Thread):
                                 # print(neighbor)
                                 self.__sendRequest(neighborIP=neighbor, isRREQ=True)
 
+            
 
     def __sendRequest(self, neighborIP=None, isRREQ=True):
 
@@ -189,8 +202,15 @@ class AODVService(threading.Thread):
 
     def requestDiscoveryPath(self, toNodeIP=None):
 
+        if shareMemoryData.exists("routing_table"):
+            routing_table = json.loads(shareMemoryData.get("routing_table"))
+            for route in routing_table:
+                if toNodeIP == route["destAddr"]:
+                    return
+
+
         sockAddr = socket.getaddrinfo(self.node["IP"], self.node["Port"], family=socket.AF_INET6,
-                                      proto=socket.IPPROTO_UDP)
+                                          proto=socket.IPPROTO_UDP)
 
         with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
 
@@ -219,7 +239,6 @@ class AODVService(threading.Thread):
             rreq_data_packet["RequestTime"].update({
                 self.node["IP"]: datetime.timestamp(datetime.now())
             })
-
             self.nextValRREQId += 1
 
             toNodeMsg = {
@@ -228,9 +247,10 @@ class AODVService(threading.Thread):
             }
 
             self.rreq_data_packet = None
-
             ss.sendto(json.dumps(toNodeMsg).encode(), sockAddr[0][4])
             ss.close()
+
+            return "Requested"
 
 
     def aodvRREQ(self, revMessage):
@@ -248,16 +268,20 @@ class AODVService(threading.Thread):
             "srcSeq": self.rreq_data_packet["seqSource"],
             "destSeq": self.rreq_data_packet["destSeq"],
         }
-        self.node["RREQ_MESSAGE"].append(rreq_message)
+        self.RREQ_MESSAGE.append(rreq_message)
         self.rreq_data_packet["sentFrom"] = self.node["IP"]
 
     def aodvRREP(self, revMessage):
+
+        routingTable = []
+        if shareMemoryData.exists("routing_table"):
+            routingTable = json.loads(shareMemoryData.get("routing_table"))
 
         self.rrep_data_packet = revMessage
         self.rrep_data_packet["hopCount"] += 1
 
         rrep_message = {
-            "ID": len(self.node["ROUTING_TABLE"]) + 1,
+            "ID": len(routingTable) + 1,
             "destAddr": self.rrep_data_packet["sourceAddr"],
             "nextHop": self.rrep_data_packet["sentFrom"],
             "hopCount": self.rrep_data_packet["hopCount"],
@@ -275,9 +299,17 @@ class AODVService(threading.Thread):
             "Lastest_used": datetime.timestamp(datetime.now())
         })
 
-        self.node["ROUTING_TABLE"].append(rrep_message)
+        foundInRoutingTable = False
+        for route in routingTable:
+            if route["destAddr"] == rrep_message["destAddr"]:
+                foundInRoutingTable = True
 
-        command = "ip -6 route add " + rrep_message["destAddr"] + " dev wlan0 via " + rrep_message["nextHop"]
-        subprocess.call(command, shell=True)
+        if not foundInRoutingTable:
+            routingTable.append(rrep_message)
+            shareMemoryData.set("routing_table", json.dumps(routingTable))
+
+        # command = "ip -6 route add " + rrep_message["destAddr"] + " dev "+neighborDiscovery.interfaceName+" via " + rrep_message["nextHop"] \
+        #           + " proto static metric 1024 pref medium"
+        # subprocess.call(command, shell=True)
 
         self.rrep_data_packet["sentFrom"] = self.node["IP"]

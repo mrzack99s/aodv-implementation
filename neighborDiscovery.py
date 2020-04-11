@@ -32,7 +32,7 @@ def neighborDiscovery():
             listNeighborProcess[ip[0]]["delay"] = (listNeighborProcess[ip[0]]["delay"] + float(ip[1])) / \
                                                   listNeighborProcess[ip[0]]["count"]
 
-            if listNeighborProcess[ip[0]]["delay"] > 12:
+            if listNeighborProcess[ip[0]]["delay"] > 6:
                 listNeighborProcess.pop(listNeighborProcess[ip[0]])
                 if ip[0] in listNeighbor:
                     listNeighbor.remove(ip[0])
