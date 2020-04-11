@@ -1,12 +1,19 @@
+import socket
 import subprocess
 
 globalPort = 20001
 
-interfaceName = subprocess.check_output("iw dev | awk '$1==\"Interface\"{print $2}'", shell=True).decode().replace("\n",
-                                                                                                                   "")
-ownIpv6 = subprocess.check_output(
-    'ip addr show ' + interfaceName + ' | grep "\<inet6\>" | awk \'{ print $2 }\' | awk -F "/" \'{ print $1 }\''
-    , shell=True).decode().replace("\n", "")
+interfaceName = subprocess.check_output("iw dev | awk '$1==\"Interface\"{print $2}'", shell=True).decode().replace("\n","")
+
+hostname = socket.gethostname()
+allIp = [socket.getaddrinfo(hostname, None, socket.AF_INET6, socket.SOCK_DGRAM)[0][4][0],
+           socket.getaddrinfo(hostname, None, socket.AF_INET6, socket.SOCK_DGRAM)[1][4][0]]
+
+for ip in allIp:
+    if ip[:4] == "fe80":
+        link_local_IPv6 = ip
+    elif ip[:4] == "2001":
+        ownIpv6 = ip
 
 
 # Process
@@ -18,7 +25,7 @@ def neighborDiscovery():
     ipDiscovery.remove('')
 
     for ip in ipDiscovery:
-        if ip.find(ownIpv6) != -1:
+        if ip.find(link_local_IPv6) != -1:
             ipDiscovery.remove(ip)
 
     listNeighborProcess = dict()
