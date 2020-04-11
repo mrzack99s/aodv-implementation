@@ -1,5 +1,5 @@
 # aodv-implementation
-
+This project uses WANET to apply communication between mobile nodes that are constantly changing. Due to the ongoing changes, Ad hoc On-Demand Distance Vector (AODV) Routing must be used to manage the communication path between Node as follows: The previous statement was the reason why this project was started.
 ## Requirements
 ```
     -   OS      :   Linux_x86_64
