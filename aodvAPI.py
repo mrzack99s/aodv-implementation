@@ -49,6 +49,8 @@ def sendMessage():
 
     elif result["status"] == "haveRoute":
         dataSend["route"] = result["response"]
+    elif result["status"] == "error":
+        return result["response"]
 
     aodv_client.sendMessage(recv=dataSend)
 
