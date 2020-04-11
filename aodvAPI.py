@@ -1,4 +1,4 @@
-import pickle
+import redis
 from flask import Flask, request
 from flask_cors import CORS
 import aodv_client,json
@@ -6,8 +6,7 @@ import aodv_client,json
 app = Flask(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 CORS(app, resources={r'/*': {'origins': '*'}})
-
-scAPI = 20003
+shareMemoryData = redis.StrictRedis(host="::1", port=6379, password="passwd", decode_responses=True)
 
 @app.route('/', methods=['GET'])
 def getDefaultPage():
@@ -16,21 +15,22 @@ def getDefaultPage():
 
 @app.route('/getRoutingTable', methods=['GET'])
 def getRoutingTable():
-    mrzFile = open("routing_table.mrz", 'rb')
-    routing_table  = pickle.load(mrzFile)
-    mrzFile.close()
 
-    return json.dumps(routing_table,indent=2)
+    if shareMemoryData.exists("routing_table"):
+        routing_table = json.loads(shareMemoryData.get("routing_table"))
+        return json.dumps(routing_table,indent=2)
+
+    return ""
 
 
 
 @app.route('/requestDiscoveryPath', methods=['POST'])
 def requestDiscoveryPath():
     dataLoad = request.json
-    aodv_client.requestDiscoveryPath(IP=dataLoad["toIp"])
+    result = aodv_client.requestDiscoveryPath(IP=dataLoad["toIp"])
 
-    return "wait for getrouting"
+    return result
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8000)
+    app.run(debug=True, host='::', port=8000)
