@@ -9,13 +9,29 @@
 
 ** This project prefer with Debian OS
 
+## Prepare System
 
-## How to run
-
+- Ad-hoc setup (this case i made on debian) config network at /etc/network/interfaces
+```
+auto wlan0
+iface wlan0 inet6 static
+    wireless-mode   ad-hoc
+    wireless-essid  MESHNetwork
+    address    2001:3234::<interface addr>
+    netmask    64    
+```
+- Config hosts at /etc/hosts
+```
+link_local_ipv6                 hostname
+2001:3234::<interface addr>     hostname
+```
 -   install module in requirements.txt
 ```
 pip3 install requirements.txt 
 ```
+
+
+## How to run
 
 - Running scripts
 
