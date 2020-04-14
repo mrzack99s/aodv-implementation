@@ -6,6 +6,8 @@ import redis
 import threading
 import time
 from datetime import datetime
+
+import multicastSender
 import neighborDiscovery
 
 globalPort = 20001
@@ -130,7 +132,7 @@ class AODVService(threading.Thread):
                                 self.rreq_data_packet["sourceAddr"]["IP"]:
                             # print(self.node["Name"])
                             for neighbor in neighbors:
-                                if neighbor != self.rreq_data_packet["sourceAddr"]["link_local_IPv6"]:
+                                if neighbors[neighbor]["IP"] != self.rreq_data_packet["sourceAddr"]["link_local_IPv6"]:
                                     # print(neighbor)
                                     self.__sendRequest(neighborIP=neighbor, isRREQ=True)
 
@@ -183,7 +185,7 @@ class AODVService(threading.Thread):
                         neighbors = json.loads(shareMemoryData.get("neighbors"))
 
                         for neighbor in neighbors:
-                            if neighbor != self.rreq_data_packet["sourceAddr"]["link_local_IPv6"]:
+                            if neighbors[neighbor]["IP"] != self.rreq_data_packet["sourceAddr"]["link_local_IPv6"]:
                                 # print(neighbor)
                                 self.__sendRequest(neighborIP=neighbor, isRREQ=True)
 
@@ -223,14 +225,13 @@ class AODVService(threading.Thread):
             shareMemoryData.delete("neighbors")
             self.neighborDiscovery()
 
+        while not shareMemoryData.exists("neighbors"):
+            pass
+
         return True
 
     def neighborDiscovery(self):
-        neighbors = []
-        while len(neighbors) == 0:
-            neighbors = neighborDiscovery.neighborDiscovery()
-
-        shareMemoryData.set("neighbors", json.dumps(neighbors))
+        multicastSender.sendToMulticast()
 
     def __sendData(self, IP=None, data=None):
 
@@ -277,6 +278,7 @@ class AODVService(threading.Thread):
         while not self.conditionCheckForNeighborDiscovery(destAddr=toNodeIP):
             pass
 
+        print(shareMemoryData.get("neighbors"))
         sockAddr = socket.getaddrinfo(self.node["link_local_IPv6"], self.node["Port"], family=socket.AF_INET6,
                                       proto=socket.IPPROTO_UDP)
 

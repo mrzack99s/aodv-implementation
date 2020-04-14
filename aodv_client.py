@@ -1,4 +1,7 @@
+import threading
+
 import aodvServive
+import neighborDiscovery
 
 aodvServ = aodvServive.AODVService()
 
@@ -12,4 +15,13 @@ def sendMessage(recv=None):
 
 
 if __name__ == "__main__":
+
+    t = threading.Thread(target=neighborDiscovery.Revc)
+    t.setDaemon(True)
+    tt = threading.Thread(target=neighborDiscovery.RecvReply)
+    tt.setDaemon(True)
+
+    t.start()
+    tt.start()
+
     aodvServ.start()
