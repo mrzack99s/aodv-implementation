@@ -53,6 +53,8 @@ def sendMessage():
         return result["response"]
 
     aodv_client.sendMessage(recv=dataSend)
+    neighbors = json.loads(shareMemoryData.get("neighbors"))
+    print(neighbors)
 
     return "Sending message to node ip " + dataLoad["toIp"]
 
