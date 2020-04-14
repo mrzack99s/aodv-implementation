@@ -1,4 +1,5 @@
 import json
+import random
 import socket
 import subprocess
 
@@ -38,7 +39,6 @@ def TimeChecker():
                     command = "ip -6 route del " + route["destAddr"]
                     subprocess.call(command, shell=True)
 
-                    print("Route ID ", route["ID"], "is expire")
                     routing_table.pop(routing_table.index(route))
 
                     shareMemoryData.set("routing_table", json.dumps(routing_table))
@@ -71,8 +71,7 @@ class AODVService(threading.Thread):
         self.RREQ_MESSAGE = []
         self.rreq_data_packet = None
         self.rrep_data_packet = None
-        self.nextValRREQId = 1
-        self.destTinationSeq = {}
+        self.sequence = {}
 
         shareMemoryData.flushdb()
         shareMemoryData.set("nodeDetail", json.dumps(self.node))
@@ -81,7 +80,7 @@ class AODVService(threading.Thread):
         return
 
     def runExpireTimer(self):
-        print("################## Timer at " + self.node["IP"] + " Start ###############")
+        print("################## AODV Service start at " + self.node["IP"] + " ###############")
         t = threading.Thread(target=TimeChecker)
         t.setDaemon(True)
         t.start()
@@ -112,24 +111,21 @@ class AODVService(threading.Thread):
                     # Is RREQ and not source node
                     if revMessage["data"]["isRREQ"] and revMessage["data"]["sourceAddr"]["IP"] != self.node["IP"]:
 
-                        print("Recieve RREQ packet")
                         self.aodvRREQ(revMessage["data"])
 
                     # Is RREP and not source node ( Destination from source )
                     elif not revMessage["data"]["isRREQ"] and revMessage["data"]["sourceAddr"] != self.node["IP"]:
 
-                        print("Recieve RREP packet")
                         self.aodvRREP(revMessage["data"])
 
                     # RREQ
                     if self.rrep_data_packet is None and revMessage["data"]["sourceAddr"]["IP"] != self.node["IP"]:
 
-                        self.conditionCheckForNeighborDiscovery(destAddr=revMessage["data"]["destAddr"])
                         neighbors = json.loads(shareMemoryData.get("neighbors"))
 
                         # From source boardcast to neighbor
                         if self.node["IP"] != self.rreq_data_packet["destAddr"] and self.node["IP"] != \
-                                self.rreq_data_packet["sourceAddr"]["IP"]:
+                                self.rreq_data_packet["sourceAddr"]["IP"] and revMessage["data"]["sentFrom"]["link_local_IPv6"] not in neighbors:
                             # print(self.node["Name"])
                             for neighbor in neighbors:
                                 if neighbors[neighbor]["IP"] != self.rreq_data_packet["sourceAddr"]["link_local_IPv6"]:
@@ -278,29 +274,29 @@ class AODVService(threading.Thread):
         while not self.conditionCheckForNeighborDiscovery(destAddr=toNodeIP):
             pass
 
-        print(shareMemoryData.get("neighbors"))
+
         sockAddr = socket.getaddrinfo(self.node["link_local_IPv6"], self.node["Port"], family=socket.AF_INET6,
                                       proto=socket.IPPROTO_UDP)
 
         with socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM) as ss:
 
-            rreq_id_generate = self.node["IP"] + "_" + str(self.nextValRREQId)
-
             try:
-                destSeqGen = self.destTinationSeq[toNodeIP] + 1
+                seqNumber = self.sequence[toNodeIP]
+                self.sequence[toNodeIP] += 1
             except:
-
-                destSeqGen = 1
-                self.destTinationSeq.update({
-                    toNodeIP: destSeqGen
+                seqNumber = 1
+                self.sequence.update({
+                    toNodeIP: seqNumber
                 })
 
+            rreq_id_generate = self.node["IP"][-9:] + "_" + str(seqNumber)
+            destSeqGen = toNodeIP[-4:] + "_" + str(121 - seqNumber)
             rreq_data_packet = {
                 "sourceAddr": {
                     "IP": self.node["IP"],
                     "link_local_IPv6": self.node["link_local_IPv6"],
                 },
-                "seqSource": self.nextValRREQId,
+                "seqSource": self.sequence,
                 "RreqId": rreq_id_generate,
                 "destAddr": toNodeIP,
                 "destSeq": destSeqGen,
@@ -312,10 +308,10 @@ class AODVService(threading.Thread):
                 "isRREQ": True,
                 "RequestTime": {}
             }
+
             rreq_data_packet["RequestTime"].update({
                 self.node["IP"]: datetime.timestamp(datetime.now())
             })
-            self.nextValRREQId += 1
 
             toNodeMsg = {
                 "mode": 0,
@@ -332,6 +328,11 @@ class AODVService(threading.Thread):
             }
 
     def aodvRREQ(self, revMessage):
+
+        self.conditionCheckForNeighborDiscovery(destAddr=revMessage["destAddr"])
+        neighbors = json.loads(shareMemoryData.get("neighbors"))
+        if revMessage["sentFrom"]["link_local_IPv6"] in neighbors:
+            pass
 
         self.rreq_data_packet = revMessage
         self.rreq_data_packet["hopCount"] += 1
@@ -390,10 +391,10 @@ class AODVService(threading.Thread):
             routingTable.append(rrep_message)
             shareMemoryData.set("routing_table", json.dumps(routingTable))
 
-        command = "ip -6 route add " + rrep_message["destAddr"] + " dev " + neighborDiscovery.interfaceName + " via " + \
-                  rrep_message["nextHop"] \
-                  + " proto static metric 1024 pref medium"
-        subprocess.call(command, shell=True)
+            command = "ip -6 route add " + rrep_message["destAddr"] + " dev " + neighborDiscovery.interfaceName + " via " + \
+                      rrep_message["nextHop"] \
+                      + " proto static metric 1024 pref medium"
+            subprocess.call(command, shell=True)
 
         self.rrep_data_packet["sentFrom"] = {
             "IP": self.node["IP"],

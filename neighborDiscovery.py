@@ -47,7 +47,6 @@ def Revc():
     )
 
     try:
-        print('Listening for traffic on %s:%s on ip %s' % (group, port, interface))
         while True:
             readable, _, _ = select.select([sock], [], [], .5)
 
@@ -82,6 +81,9 @@ def RecvReply():
         "latestUpdate": None,
         "neighbors": {}
     }
+
+    recvTrigger = False
+
     udpServer = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
     udpServer.bind(("::", 20003))
 
@@ -99,6 +101,9 @@ def RecvReply():
                 listNeighbors["latestUpdate"]
             )
 
+            if not recvTrigger:
+                recvTrigger = True
+
             if durationListNeighbors.seconds > 60:
                 listNeighbors["neighbors"].clear()
 
@@ -107,7 +112,7 @@ def RecvReply():
             )
             Latency_Time = duration.microseconds * (10 ** -3)
 
-            if Latency_Time < 100:
+            if Latency_Time < 5:
 
                 node = {
                     "IP": revMessage["replyFrom"],
@@ -120,5 +125,6 @@ def RecvReply():
 
                 listNeighbors["latestUpdate"] = datetime.timestamp(datetime.now())
 
-            shareMemoryData.set("neighbors",json.dumps(listNeighbors["neighbors"]))
-
+        if recvTrigger:
+                shareMemoryData.set("neighbors", json.dumps(listNeighbors["neighbors"]))
+                recvTrigger = False
