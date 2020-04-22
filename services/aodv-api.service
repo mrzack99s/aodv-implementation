@@ -3,9 +3,10 @@ Description=AODV services
 After=network.target
 
 [Service]
-User=root
-Group=root
+StandardOutput=inherit
+StandardError=inherit
 WorkingDirectory=/var/aodv-implementation/
+Restart=always
 ExecStart=/usr/bin/python3 /var/aodv-implementation/aodvAPI.py
 
 [Install]
