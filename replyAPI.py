@@ -52,5 +52,12 @@ def run():
 
 
             elif revMessage["mode"] == "reply":
-                shareMemoryData.set(revMessage["destAddr"] + ":nodeDetail",
-                                    json.dumps(revMessage["payload"]))
+                allNodeDetail = {}
+                if shareMemoryData.exists("allNodeDetail"):
+                    allNodeDetail = json.loads(shareMemoryData.get("allNodeDetail"))
+
+                allNodeDetail.update({
+                    len(allNodeDetail):revMessage["payload"]
+                })
+
+                shareMemoryData.set("allNodeDetail",json.dumps(allNodeDetail))

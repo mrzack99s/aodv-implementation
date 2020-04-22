@@ -1,5 +1,5 @@
 import time
-import redis,socket
+import redis, socket
 import requests
 from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
@@ -21,6 +21,7 @@ for ip in ownIPv6:
     elif ip[:4] == "2001":
         myIPv6 = str(ip)
 
+
 @app.route('/', methods=['GET'])
 def getDefaultPage():
     return "AODV-API..... It's work!!"
@@ -34,6 +35,7 @@ def getRoutingTable():
 
     return ""
 
+
 @app.route('/getNodeDetail', methods=['GET'])
 def getNodeDetail():
     if shareMemoryData.exists("nodeDetail"):
@@ -42,9 +44,10 @@ def getNodeDetail():
 
     return ""
 
+
 @app.route('/getAllNode', methods=['GET'])
 def getAllNode():
-    shareMemoryData.set("getAllNode",1)
+    shareMemoryData.set("getAllNode", 1)
     multicastSender.sendToMulticast()
     while not shareMemoryData.exists("allNeighbors"):
         pass
@@ -54,7 +57,6 @@ def getAllNode():
     shareMemoryData.delete("getAllNode")
     neighbors = json.loads(shareMemoryData.get("allNeighbors"))
 
-    allNodeDetail = []
     for ip in neighbors:
         # Get socket address
         sockAddr = socket.getaddrinfo(ip, 20009,
@@ -64,32 +66,36 @@ def getAllNode():
             msg = {
                 "sentFrom": local_link_ipv6,
                 "destAddr": ip,
-                "mode":"get"
+                "mode": "get"
             }
             ss.sendto(json.dumps(msg).encode(), sockAddr[0][4])
             ss.close()
 
-        time.sleep(.4)
-        allNodeDetail.append(json.loads(shareMemoryData.get(ip+":nodeDetail")))
+        time.sleep(.3)
+
+    allNodeDetail = json.loads(shareMemoryData.get("allNodeDetail"))
+    allNodeDetail.update({
+        str(len(allNodeDetail)):{
+            "nodeDetail":
+                json.loads(shareMemoryData.get("nodeDetail")) if shareMemoryData.exists("nodeDetail")
+                else [],
+            "routingTable":
+                json.loads(shareMemoryData.get("routing_table")) if shareMemoryData.exists("routing_table")
+                else [],
+            "message": json.loads(shareMemoryData.get("message_recv")) if shareMemoryData.exists(
+                "message_recv")
+            else [],
+            "neighbors": json.loads(shareMemoryData.get("neighbors")) if shareMemoryData.exists("neighbors")
+            else []
+        }
+    })
 
     multicastSender.sendToMulticast()
     time.sleep(.2)
-    myNode={
-        "nodeDetail":
-            json.loads(shareMemoryData.get("nodeDetail")) if shareMemoryData.exists("nodeDetail")
-            else [],
-        "routingTable":
-            json.loads(shareMemoryData.get("routing_table")) if shareMemoryData.exists("routing_table")
-            else [],
-        "message": json.loads(shareMemoryData.get("message_recv")) if shareMemoryData.exists(
-            "message_recv")
-        else [],
-        "neighbors": json.loads(shareMemoryData.get("neighbors")) if shareMemoryData.exists("neighbors")
-                        else []
-    }
-    allNodeDetail.append(myNode)
+    shareMemoryData.delete("allNodeDetail")
 
-    return  make_response(jsonify(allNodeDetail))
+    return make_response(jsonify(allNodeDetail))
+
 
 @app.route('/sendMessage', methods=['POST'])
 def sendMessage():
