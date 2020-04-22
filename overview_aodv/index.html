@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<title>Web Overview Topology</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="w3.css">
+<link rel="stylesheet" href="fa-icon/css/all.min.css">
+<script type="text/javascript" src="js/vis-network.min.js"></script>
+<script src="js/jquery.min.js"></script>
+
+<style>
+    #topology {
+        width: 100%;
+        height: 80vh;
+        margin: 0 auto;
+        border: 1px solid #777;
+    }
+</style>
+
+<body class="w3-light-grey w3-content" style="max-width:1600px">
+
+    <!-- Sidebar/menu -->
+    <nav class="w3-sidebar w3-collapse w3-white w3-animate-left" style="z-index:3;width:300px;" id="mySidebar"><br>
+        <div class="w3-container">
+            <a href="#" onclick="w3_close()" class="w3-hide-large w3-right w3-jumbo w3-padding w3-hover-grey"
+                title="close menu">
+                <i class="fa fa-remove"></i>
+            </a>
+            <img src="iot.png" style="width:45%;" class="w3-round"><br><br>
+            <h4><b>Web Overview Topology</b></h4>
+        </div>
+        <div class="w3-bar-block">
+            <a href="#Topology" onclick="w3_close()" class="w3-bar-item w3-button w3-padding w3-text-teal"><i
+                    class="fa fa-th-large fa-fw w3-margin-right"></i>Topology</a>
+            <a href="#Routing_table" onclick="w3_close()" class="w3-bar-item w3-button w3-padding"><i
+                    class="fa fa-th-large fa-fw w3-margin-right"></i>Routing_table</a>
+            <a href="#Message" onclick="w3_close()" class="w3-bar-item w3-button w3-padding"><i
+                    class="fa fa-envelope fa-fw w3-margin-right"></i>Message</a>
+        </div>
+
+    </nav>
+
+    <!-- Overlay effect when opening sidebar on small screens -->
+    <div class="w3-overlay w3-hide-large w3-animate-opacity" onclick="w3_close()" style="cursor:pointer"
+        title="close side menu" id="myOverlay"></div>
+
+    <!-- !PAGE CONTENT! -->
+    <div class="w3-main" style="margin-left:300px">
+
+        <!-- Header -->
+        <header id="Topology">
+            <a href="#"><img src="iot.png" style="width:65px;"
+                    class="w3-circle w3-right w3-margin w3-hide-large w3-hover-opacity"></a>
+            <span class="w3-button w3-hide-large w3-xxlarge w3-hover-text-grey" onclick="w3_open()"><i
+                    class="fa fa-bars"></i></span>
+        </header>
+
+        <!-- First Photo Grid-->
+        <div class="w3-row-padding">
+            <div class="w3-container w3-margin-top">
+                <h1><b>Topology</b></h1>
+                <h4>Topology of mobile ad hoc</h4>
+            </div>
+
+            <div id="topology"></div>
+
+        </div>
+
+
+        <!-- 222222 -->
+
+        <div class="w3-container w3-padding-large" style="margin-bottom:32px" id="Routing_table">
+            <h1><b>Routing table</b></h1>
+
+            <table class="w3-table-all">
+                <thead>
+                    <tr class="w3-teal">
+                        <th>ID</th>
+                        <th>Destination</th>
+                        <th>Next Hop</th>
+                        <th>Latency time</th>
+                        <th>Lifetime</th>
+                    </tr>
+                </thead>
+                <tbody id="routingTable">
+
+                </tbody>
+
+            </table>
+
+
+
+        </div>
+
+        <!-- Contact Section -->
+        <div class="w3-container w3-padding-large" id="Message">
+            <h1 id="contact"><b>Message</b></h1>
+            <div class="w3-row-padding w3-center w3-padding-24" style="margin:0 -16px">
+                    <div id="msgArea"></div>
+
+
+
+            </div>
+            <hr class="w3-opacity">
+
+        </div>
+
+
+        <div class="w3-gray w3-center w3-padding-24"> Chatdanai Phakaket || Css powered by <a href="https://www.w3schools.com/w3css/default.asp"
+                title="W3.CSS" target="_blank" class="w3-hover-opacity">w3.css</a></div>
+
+        <!-- End page content -->
+    </div>
+
+    <script>
+        // Script to open and close sidebar
+        function w3_open() {
+            document.getElementById("mySidebar").style.display = "block";
+            document.getElementById("myOverlay").style.display = "block";
+        }
+
+        function w3_close() {
+            document.getElementById("mySidebar").style.display = "none";
+            document.getElementById("myOverlay").style.display = "none";
+        }
+
+        var tempNodeArray = [];
+        var tempConnectionArray = []
+        var routingTable = []
+
+        function generateOverview() {
+            $.get("http://192.168.1.101:8000/getAllNode", function (data, status) {
+
+                tempNodeArray = [];
+                tempConnectionArray = []
+                routingTable = []
+                nodeDetails = data
+                $("#bar").empty();
+                $("#routingTable").empty()
+                $("#msgArea").empty();
+
+                for (var node in nodeDetails) {
+                    tempNodeArray.push({
+                        id: nodeDetails[node].nodeDetail.link_local_IPv6,
+                        label: nodeDetails[node].nodeDetail.IP,
+                        image: "iot.png",
+                        shape: "image"
+                    });
+
+                    for (var neighbor in nodeDetails[node].neighbors) {
+
+                        var found = false;
+                        for (var chk in tempConnectionArray) {
+                            if (tempConnectionArray[chk].to == nodeDetails[node].nodeDetail.link_local_IPv6)
+                                found = true;
+                        }
+
+                        if (!found) {
+                            tempConnectionArray.push({
+                                from: nodeDetails[node].nodeDetail.link_local_IPv6,
+                                to: neighbor,
+                                width: 3, length: 400
+                            });
+                        }
+                    }
+
+
+                    // Generate routing table
+
+                    mTable = '';
+
+                    var chkNone = true;
+                    for (var id in nodeDetails[node].routingTable) {
+                        mTable += ' <tr> ' +
+                            '<td>' + nodeDetails[node].routingTable[id].ID + '</td>' +
+                            '<td>' + nodeDetails[node].routingTable[id].destAddr + '</td>' +
+                            '<td>' + nodeDetails[node].routingTable[id].nextHop + '</td>' +
+                            '<td>' + nodeDetails[node].routingTable[id].LatencyTime + '</td>' +
+                            '<td>' + nodeDetails[node].routingTable[id].hopCount + '</td>' +
+                            ' </tr>';
+                        chkNone = false;
+                    }
+                    if (chkNone && $("#routingTable").children().length == 0)
+                        mTable += '<tr><td colspan="5">No routing table</td></tr>'
+
+
+                    $("#routingTable").append(mTable);
+
+
+
+                    // Get message
+
+
+                    msgArea = '<div class="w3-third w3-padding"><div class="w3-card-2" style="width:100%;">' +
+                        '<header class="w3-container w3-teal">' +
+                        '<h5 id="msgNodeName">' + nodeDetails[node].nodeDetail.IP + '</h5>'+
+                    ' </header>' +
+
+                        '<div class="w3-container w3-padding"><p>';
+
+                    if ((nodeDetails[node].message).length == 0) {
+                        msgArea += "No message";
+                    }
+                    else {
+                        msgArea += "<b> Sent from : </b> " + nodeDetails[node].message.sentFrom + "<br>";
+                        msgArea += "<b> With message : </b> " + nodeDetails[node].message.message + "<br>";
+                        msgArea += "<b> Timestamp : </b> " + parseTimeStamp(nodeDetails[node].message.timestamp) + "<br>";
+
+                    }
+
+                    msgArea += '</p></div></div></div>';
+
+
+
+                    $("#msgArea").append(msgArea);
+
+
+
+                }
+
+
+
+
+                var nodes = new vis.DataSet(tempNodeArray);;
+
+                var edges = new vis.DataSet(tempConnectionArray);
+
+                // create a network
+                var container = document.getElementById('topology');
+                var data = {
+                    nodes: nodes,
+                    edges: edges
+                };
+                var options = {};
+                var network = new vis.Network(container, data, options);
+
+            });
+
+        }
+
+
+        $(document).ready(function () {
+            generateOverview();
+            setInterval(generateOverview, 10000);
+        });
+
+
+
+
+        function changeRoutingTable(name) {
+            var i;
+            var x = document.getElementsByClassName("node");
+            for (i = 0; i < x.length; i++) {
+                x[i].style.display = "none";
+            }
+            document.getElementById(name).style.display = "block";
+        }
+
+        function parseTimeStamp(ts) {
+
+            // convert unix timestamp to milliseconds
+            var ts_ms = ts * 1000;
+
+            // initialize new Date object
+            var date_ob = new Date(ts_ms);
+
+            // year as 4 digits (YYYY)
+            var year = date_ob.getFullYear();
+
+            // month as 2 digits (MM)
+            var month = ("0" + (date_ob.getMonth() + 1)).slice(-2);
+
+            // date as 2 digits (DD)
+            var date = ("0" + date_ob.getDate()).slice(-2);
+
+            // hours as 2 digits (hh)
+            var hours = ("0" + date_ob.getHours()).slice(-2);
+
+            // minutes as 2 digits (mm)
+            var minutes = ("0" + date_ob.getMinutes()).slice(-2);
+
+            // seconds as 2 digits (ss)
+            var seconds = ("0" + date_ob.getSeconds()).slice(-2);
+            
+            return year + "-" + month + "-" + date + " " + hours + ":" + minutes + ":" + seconds;
+        }
+
+
+    </script>
+
+</body>
+
+</html>
