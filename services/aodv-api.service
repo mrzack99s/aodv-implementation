@@ -1,0 +1,12 @@
+[Unit]
+Description=AODV services
+After=network.target
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/var/aodv-implementation/
+ExecStart=/usr/bin/python3 /var/aodv-implementation/aodvAPI.py
+
+[Install]
+WantedBy=multi-user.target

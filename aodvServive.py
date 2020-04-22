@@ -290,7 +290,7 @@ class AODVService(threading.Thread):
 
             rreq_id_generate = self.node["IP"][-9:] + "_" + str(seqNumber)
             destSeqGen = toNodeIP[-4:] + "_" + str(121 - seqNumber)
-            sourceSeqGen = self.node["IP"][-4:] + "_" + seqNumber
+            sourceSeqGen = self.node["IP"][-4:] + "_" + str(seqNumber)
             rreq_data_packet = {
                 "sourceAddr": {
                     "IP": self.node["IP"],
