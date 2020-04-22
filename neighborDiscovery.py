@@ -112,7 +112,12 @@ def RecvReply():
             )
             Latency_Time = duration.microseconds * (10 ** -3)
 
-            if Latency_Time < 5:
+            if shareMemoryData.exists("getAllNode"):
+                responseTime = 200
+            else:
+                responseTime = 5
+
+            if Latency_Time < responseTime:
 
                 node = {
                     "IP": revMessage["replyFrom"],
@@ -126,5 +131,9 @@ def RecvReply():
                 listNeighbors["latestUpdate"] = datetime.timestamp(datetime.now())
 
         if recvTrigger:
+            if shareMemoryData.exists("getAllNode"):
+                shareMemoryData.set("allNeighbors", json.dumps(listNeighbors["neighbors"]))
+            else:
                 shareMemoryData.set("neighbors", json.dumps(listNeighbors["neighbors"]))
-                recvTrigger = False
+
+            recvTrigger = False

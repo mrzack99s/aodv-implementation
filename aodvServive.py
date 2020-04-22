@@ -1,5 +1,4 @@
 import json
-import random
 import socket
 import subprocess
 
@@ -13,7 +12,6 @@ import neighborDiscovery
 
 globalPort = 20001
 shareMemoryData = redis.StrictRedis(host="::1", port=6379, password="passwd", decode_responses=True)
-
 
 def TimeChecker():
     idleTime = {}
@@ -125,7 +123,8 @@ class AODVService(threading.Thread):
 
                         # From source boardcast to neighbor
                         if self.node["IP"] != self.rreq_data_packet["destAddr"] and self.node["IP"] != \
-                                self.rreq_data_packet["sourceAddr"]["IP"] and revMessage["data"]["sentFrom"]["link_local_IPv6"] not in neighbors:
+                                self.rreq_data_packet["sourceAddr"]["IP"] and revMessage["data"]["sentFrom"][
+                            "link_local_IPv6"] not in neighbors:
                             # print(self.node["Name"])
                             for neighbor in neighbors:
                                 if neighbors[neighbor]["IP"] != self.rreq_data_packet["sourceAddr"]["link_local_IPv6"]:
@@ -204,6 +203,7 @@ class AODVService(threading.Thread):
                         message_recv = revMessage["data"]
                         shareMemoryData.set("message_recv", json.dumps(message_recv))
 
+
     def conditionCheckForNeighborDiscovery(self, destAddr=None):
 
         routingTable = []
@@ -274,7 +274,6 @@ class AODVService(threading.Thread):
         while not self.conditionCheckForNeighborDiscovery(destAddr=toNodeIP):
             pass
 
-
         sockAddr = socket.getaddrinfo(self.node["link_local_IPv6"], self.node["Port"], family=socket.AF_INET6,
                                       proto=socket.IPPROTO_UDP)
 
@@ -291,12 +290,13 @@ class AODVService(threading.Thread):
 
             rreq_id_generate = self.node["IP"][-9:] + "_" + str(seqNumber)
             destSeqGen = toNodeIP[-4:] + "_" + str(121 - seqNumber)
+            sourceSeqGen = self.node["IP"][-4:] + "_" + seqNumber
             rreq_data_packet = {
                 "sourceAddr": {
                     "IP": self.node["IP"],
                     "link_local_IPv6": self.node["link_local_IPv6"],
                 },
-                "seqSource": self.sequence,
+                "seqSource": sourceSeqGen,
                 "RreqId": rreq_id_generate,
                 "destAddr": toNodeIP,
                 "destSeq": destSeqGen,
@@ -391,7 +391,8 @@ class AODVService(threading.Thread):
             routingTable.append(rrep_message)
             shareMemoryData.set("routing_table", json.dumps(routingTable))
 
-            command = "ip -6 route add " + rrep_message["destAddr"] + " dev " + neighborDiscovery.interfaceName + " via " + \
+            command = "ip -6 route add " + rrep_message[
+                "destAddr"] + " dev " + neighborDiscovery.interfaceName + " via " + \
                       rrep_message["nextHop"] \
                       + " proto static metric 1024 pref medium"
             subprocess.call(command, shell=True)

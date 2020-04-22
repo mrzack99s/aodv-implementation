@@ -1,5 +1,5 @@
 import threading
-
+import replyAPI
 import aodvServive
 import neighborDiscovery
 
@@ -20,8 +20,11 @@ if __name__ == "__main__":
     t.setDaemon(True)
     tt = threading.Thread(target=neighborDiscovery.RecvReply)
     tt.setDaemon(True)
+    replyAPI = threading.Thread(target=replyAPI.run)
+    replyAPI.setDaemon(True)
 
     t.start()
     tt.start()
+    replyAPI.start()
 
     aodvServ.start()
