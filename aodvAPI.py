@@ -73,7 +73,13 @@ def getAllNode():
 
         time.sleep(.3)
 
-    allNodeDetail = json.loads(shareMemoryData.get("allNodeDetail"))
+    haveAllNodeDetailInRedis = False
+    try:
+        allNodeDetail = json.loads(shareMemoryData.get("allNodeDetail"))
+        haveAllNodeDetailInRedis = True
+    except:
+        allNodeDetail = {}
+
     allNodeDetail.update({
         str(len(allNodeDetail)):{
             "nodeDetail":
@@ -92,7 +98,8 @@ def getAllNode():
 
     multicastSender.sendToMulticast()
     time.sleep(.2)
-    shareMemoryData.delete("allNodeDetail")
+    if haveAllNodeDetailInRedis:
+        shareMemoryData.delete("allNodeDetail")
 
     return make_response(jsonify(allNodeDetail))
 

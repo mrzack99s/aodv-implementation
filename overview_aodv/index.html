@@ -82,8 +82,26 @@
         
 
         <div class="w3-container w3-padding-large" style="margin-bottom:32px" id="Routing_table">
-            <h1><b>Routing tables</b></h1>
+            <h1><b>Routing tables all of nodes</b></h1>
+            <table class="w3-table-all w3-margin-top w3-margin-bottom">
+                <thead>
+                    <tr class="w3-teal">
+                        <th>At Node</th>
+                        <th>Destination</th>
+                        <th>Next Hop</th>
+                        <th>Latency time</th>
+                        <th>Hop count</th>
+                        <th>Lifetime</th>
+                    </tr>
+                </thead>
+                <tbody id="routingTableAllOfNodes">
+                    <tr><td colspan="5" align="center">No routing table</td></tr>
+                </tbody>
+            </table>
 
+
+            
+            <h2><b>Routing tables of node</b></h2>
             <div class="w3-bar w3-blue-grey w3-margin-top" id="bars">  
             </div>
 
@@ -133,73 +151,118 @@
 
         var tempNodeArray = [];
         var tempConnectionArray = []
-        var routingTable = []
         var superNodeIp = null;
+        var nodeCount = 0;
+        var lastSelectRoutingPage = null;
+        var intervalId = null;
 
         $("#connect").click(function(){
             superNodeIp = $("#superNodeIp").val();
             refeshTime = $("#refeshTime").val();
             generateOverview();
-            setInterval(generateOverview, refeshTime*1000);
+            if(intervalId != null){
+                nodeCount = 0;
+                clearInterval(intervalId);
+            }
+            intervalId = setInterval(generateOverview, refeshTime*1000);
         });
 
         $("#resetPage").click(function(){
-            window.location.reload();
+            $("#superNodeIp").val("");
+            $("#refeshTime").val("");
         });
 
         function generateOverview() {
             if(superNodeIp != null){
                 $.get("http://"+superNodeIp+":8000/getAllNode", function (data, status) {
 
-                    tempNodeArray = [];
-                    tempConnectionArray = []
-                    routingTable = []
-                    nodeDetails = data
-                    $("#bars").empty();
-                    $("#routingTable").empty()
-                    $("#msgArea").empty();
+                    var routingTable = [];
+                    nodeDetails = data;
+
+                    var count = 0;
+
+                    for (var node in nodeDetails)
+                        count += 1;
 
 
-                    for (var node in nodeDetails) {
-                        tempNodeArray.push({
-                            id: nodeDetails[node].nodeDetail.link_local_IPv6,
-                            label: nodeDetails[node].nodeDetail.IP,
-                            image: "iot.png",
-                            shape: "image"
-                        });
+                    if(nodeCount != count){
+                        
+                        nodeCount = count;
+                        tempNodeArray = [];
+                        tempConnectionArray = []
+                        // Generate bars
+                        $("#bars").empty();
+                        
+                        
+                        for (var node in nodeDetails){
+                            tempNodeArray.push({
+                                id: nodeDetails[node].nodeDetail.link_local_IPv6,
+                                label: nodeDetails[node].nodeDetail.IP,
+                                image: "iot.png",
+                                shape: "image"
+                            });
 
-                        for (var neighbor in nodeDetails[node].neighbors) {
+                            for (var neighbor in nodeDetails[node].neighbors) {
 
-                            var found = false;
-                            for (var chk in tempConnectionArray) {
-                                if (tempConnectionArray[chk].to == nodeDetails[node].nodeDetail.link_local_IPv6)
-                                    found = true;
+                                var found = false;
+                                for (var chk in tempConnectionArray) {
+                                    if (tempConnectionArray[chk].to == nodeDetails[node].nodeDetail.link_local_IPv6)
+                                        found = true;
+                                }
+
+                                if (!found) {
+                                    tempConnectionArray.push({
+                                        from: nodeDetails[node].nodeDetail.link_local_IPv6,
+                                        to: neighbor,
+                                        width: 3, length: 400
+                                    });
+                                }
                             }
 
-                            if (!found) {
-                                tempConnectionArray.push({
-                                    from: nodeDetails[node].nodeDetail.link_local_IPv6,
-                                    to: neighbor,
-                                    width: 3, length: 400
-                                });
+                            var nodes = new vis.DataSet(tempNodeArray);;
+
+                            var edges = new vis.DataSet(tempConnectionArray);
+
+                            // create a network
+                            var container = document.getElementById('topology');
+                            var data = {
+                                nodes: nodes,
+                                edges: edges
+                            };
+                            var options = {};
+                            var network = new vis.Network(container, data, options);
+
+                            
+
+                            if(node > 0){
+                            $("#bars").append('<button class="w3-bar-item w3-button tablink" onclick="changeNodeRoutingTable(event,\''+nodeDetails[node].nodeDetail.IP+'\')">'+nodeDetails[node].nodeDetail.IP+'</button>')
+                            }
+                            else{
+                                $("#bars").append('<button class="w3-bar-item w3-button tablink w3-teal" onclick="changeNodeRoutingTable(event,\''+nodeDetails[node].nodeDetail.IP+'\')">'+nodeDetails[node].nodeDetail.IP+'</button>')
                             }
                         }
 
+                    }
+
+                    
+                    $("#routingTable").empty()
+                    $("#msgArea").empty();
+
+                    for (var node in nodeDetails) {
+
 
                         // Generate routing table
-
                         
                         mTable = ''
+                        
 
-                        if(node > 0){
-                            $("#bars").append('<button class="w3-bar-item w3-button tablink" onclick="changeNodeRoutingTable(event,\''+nodeDetails[node].nodeDetail.IP+'\')">'+nodeDetails[node].nodeDetail.IP+'</button>')
+                        if( (lastSelectRoutingPage === null && node > 0) || (lastSelectRoutingPage !== null && lastSelectRoutingPage != nodeDetails[node].nodeDetail.IP)){
                             mTable =    '<div id="'+nodeDetails[node].nodeDetail.IP+'" class="w3-container-large nodeRoutingTable" style="display:none"><table class="w3-table-all"><thead><tr class="w3-teal">'+
                                         '<th>ID</th><th>Destination</th><th>Next Hop</th>' +
                                         '<th>Latency time</th><th>Hop count</th><th>Lifetime</th></tr></thead><tbody id="'+nodeDetails[node].nodeDetail.IP+'">';
                         }
                         else{
-                            $("#bars").append('<button class="w3-bar-item w3-button tablink w3-teal" onclick="changeNodeRoutingTable(event,\''+nodeDetails[node].nodeDetail.IP+'\')">'+nodeDetails[node].nodeDetail.IP+'</button>')
-                            mTable =    '<div id="'+nodeDetails[node].nodeDetail.IP+'" class="w3-container-large nodeRoutingTable"><table class="w3-table-all"><thead><tr class="w3-teal">'+
+                             mTable =    '<div id="'+nodeDetails[node].nodeDetail.IP+'" class="w3-container-large nodeRoutingTable"><table class="w3-table-all"><thead><tr class="w3-teal">'+
                                         '<th>ID</th><th>Destination</th><th>Next Hop</th>' +
                                         '<th>Latency time</th><th>Hop count</th><th>Lifetime</th></tr></thead><tbody id="'+nodeDetails[node].nodeDetail.IP+'">';
                         }
@@ -207,30 +270,56 @@
                         
 
                         var chkNone = true;
+                        var trGenerate = null;
                         for (var id in nodeDetails[node].routingTable) {
-                            mTable += ' <tr> ' +
-                                '<td>' + nodeDetails[node].routingTable[id].ID + '</td>' +
-                                '<td>' + nodeDetails[node].routingTable[id].destAddr + '</td>' +
+
+                            trGenerate = '';
+
+                            trGenerate = '<td>' + nodeDetails[node].routingTable[id].destAddr + '</td>' +
                                 '<td>' + nodeDetails[node].routingTable[id].nextHop + '</td>' +
                                 '<td>' + nodeDetails[node].routingTable[id].LatencyTime + '</td>' +
                                 '<td>' + nodeDetails[node].routingTable[id].hopCount + '</td>';
-                                if(nodeDetails[node].routingTable[id].Lifetime > 1){
-                                    mTable +='<td>' + nodeDetails[node].routingTable[id].Lifetime + ' Minutes</td>' +
-                                    ' </tr>';
-                                }
-                                else{
-                                    mTable += '<td>' + nodeDetails[node].routingTable[id].Lifetime + ' Minute</td>' +
-                                    ' </tr>';
-                                }
+                            if(nodeDetails[node].routingTable[id].Lifetime > 1){
+                                trGenerate +='<td>' + nodeDetails[node].routingTable[id].Lifetime + ' Minutes</td>' +
+                                '</tr>';
+                            }
+                            else{
+                                trGenerate += '<td>' + nodeDetails[node].routingTable[id].Lifetime + ' Minute</td>' +
+                                ' </tr>';
+                            }
+                            
+                            mTable += ' <tr> ' +
+                                '<td>' + nodeDetails[node].routingTable[id].ID + '</td>' + trGenerate;
+
+                            trGenerate = ' <tr> ' +
+                                '<td>' + nodeDetails[node].nodeDetail.IP + '</td>' + trGenerate;
+                            routingTable.push(trGenerate);
+                            
                             chkNone = false;
                         }
                         if (chkNone)
                             mTable += '<tr><td colspan="6" align="center">No routing table</td></tr>'
+                        
+                        
+                        $("#routingTableAllOfNodes").empty();
+
+                        if (routingTable.length > 0){
+                            for(var i in routingTable){
+                                $("#routingTableAllOfNodes").append(routingTable[i])
+                            }
+                        }
+                        else{
+                            $("#routingTableAllOfNodes").append('<tr><td colspan="5" align="center">No routing table</td></tr>');
+                        }
 
                         mTable += '</tbody></table></div>';
 
 
                         $("#routingTable").append(mTable);
+
+                    
+
+                        
 
 
 
@@ -264,22 +353,6 @@
 
                     }
 
-
-
-
-                    var nodes = new vis.DataSet(tempNodeArray);;
-
-                    var edges = new vis.DataSet(tempConnectionArray);
-
-                    // create a network
-                    var container = document.getElementById('topology');
-                    var data = {
-                        nodes: nodes,
-                        edges: edges
-                    };
-                    var options = {};
-                    var network = new vis.Network(container, data, options);
-
                 });
             }
 
@@ -290,12 +363,16 @@
 
 
         function changeNodeRoutingTable(evt,nodeName) {
+
+            lastSelectRoutingPage = nodeName;
             var i;
             var x = document.getElementsByClassName("nodeRoutingTable");
             for (i = 0; i < x.length; i++) {
-                x[i].style.display = "none";  
+                x[i].style.display = "none";
+                x[i].className.replace(" lastSelectRoutingPage","");
             }
             document.getElementById(nodeName).style.display = "block";  
+            document.getElementById(nodeName).className += " lastSelectRoutingPage";
             
             tablinks = document.getElementsByClassName("tablink");
             for (i = 0; i < x.length; i++) {
