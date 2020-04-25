@@ -69,24 +69,21 @@
 
         <!-- 222222 -->
 
+        
+
         <div class="w3-container w3-padding-large" style="margin-bottom:32px" id="Routing_table">
-            <h1><b>Routing table</b></h1>
+            <h1><b>Routing tables</b></h1>
 
-            <table class="w3-table-all">
-                <thead>
-                    <tr class="w3-teal">
-                        <th>ID</th>
-                        <th>Destination</th>
-                        <th>Next Hop</th>
-                        <th>Latency time</th>
-                        <th>Lifetime</th>
-                    </tr>
-                </thead>
-                <tbody id="routingTable">
+            <div class="w3-bar w3-blue-grey w3-margin-top" id="bars">  
+            </div>
 
-                </tbody>
 
-            </table>
+            
+            <div id="routingTable">
+
+            </div>
+
+            
 
 
 
@@ -94,7 +91,7 @@
 
         <!-- Contact Section -->
         <div class="w3-container w3-padding-large" id="Message">
-            <h1 id="contact"><b>Message</b></h1>
+            <h1 id="contact"><b>Messages</b></h1>
             <div class="w3-row-padding w3-center w3-padding-24" style="margin:0 -16px">
                     <div id="msgArea"></div>
 
@@ -129,15 +126,16 @@
         var routingTable = []
 
         function generateOverview() {
-            $.get("http://192.168.1.101:8000/getAllNode", function (data, status) {
+            $.get("http://192.168.1.108:8000/getAllNode", function (data, status) {
 
                 tempNodeArray = [];
                 tempConnectionArray = []
                 routingTable = []
                 nodeDetails = data
-                $("#bar").empty();
+                $("#bars").empty();
                 $("#routingTable").empty()
                 $("#msgArea").empty();
+
 
                 for (var node in nodeDetails) {
                     tempNodeArray.push({
@@ -167,7 +165,23 @@
 
                     // Generate routing table
 
-                    mTable = '';
+                    
+                    mTable = ''
+
+                    if(node > 0){
+                        $("#bars").append('<button class="w3-bar-item w3-button tablink" onclick="changeNodeRoutingTable(event,\''+nodeDetails[node].nodeDetail.IP+'\')">'+nodeDetails[node].nodeDetail.IP+'</button>')
+                        mTable =    '<div id="'+nodeDetails[node].nodeDetail.IP+'" class="w3-container-large nodeRoutingTable" style="display:none"><table class="w3-table-all"><thead><tr class="w3-teal">'+
+                                    '<th>ID</th><th>Destination</th><th>Next Hop</th>' +
+                                    '<th>Latency time</th><th>Hop count</th><th>Lifetime</th></tr></thead><tbody id="'+nodeDetails[node].nodeDetail.IP+'">';
+                    }
+                    else{
+                        $("#bars").append('<button class="w3-bar-item w3-button tablink w3-teal" onclick="changeNodeRoutingTable(event,\''+nodeDetails[node].nodeDetail.IP+'\')">'+nodeDetails[node].nodeDetail.IP+'</button>')
+                        mTable =    '<div id="'+nodeDetails[node].nodeDetail.IP+'" class="w3-container-large nodeRoutingTable"><table class="w3-table-all"><thead><tr class="w3-teal">'+
+                                    '<th>ID</th><th>Destination</th><th>Next Hop</th>' +
+                                    '<th>Latency time</th><th>Hop count</th><th>Lifetime</th></tr></thead><tbody id="'+nodeDetails[node].nodeDetail.IP+'">';
+                    }
+    
+                    
 
                     var chkNone = true;
                     for (var id in nodeDetails[node].routingTable) {
@@ -176,12 +190,21 @@
                             '<td>' + nodeDetails[node].routingTable[id].destAddr + '</td>' +
                             '<td>' + nodeDetails[node].routingTable[id].nextHop + '</td>' +
                             '<td>' + nodeDetails[node].routingTable[id].LatencyTime + '</td>' +
-                            '<td>' + nodeDetails[node].routingTable[id].hopCount + '</td>' +
-                            ' </tr>';
+                            '<td>' + nodeDetails[node].routingTable[id].hopCount + '</td>';
+                            if(nodeDetails[node].routingTable[id].Lifetime > 1){
+                                mTable +='<td>' + nodeDetails[node].routingTable[id].Lifetime + ' Minutes</td>' +
+                                ' </tr>';
+                            }
+                            else{
+                                mTable += '<td>' + nodeDetails[node].routingTable[id].Lifetime + ' Minute</td>' +
+                                ' </tr>';
+                            }
                         chkNone = false;
                     }
-                    if (chkNone && $("#routingTable").children().length == 0)
-                        mTable += '<tr><td colspan="5">No routing table</td></tr>'
+                    if (chkNone)
+                        mTable += '<tr><td colspan="6" align="center">No routing table</td></tr>'
+
+                    mTable += '</tbody></table></div>';
 
 
                     $("#routingTable").append(mTable);
@@ -202,7 +225,7 @@
                         msgArea += "No message";
                     }
                     else {
-                        msgArea += "<b> Sent from : </b> " + nodeDetails[node].message.sentFrom + "<br>";
+                        msgArea += "<b> Send from : </b> " + nodeDetails[node].message.sentFrom + "<br>";
                         msgArea += "<b> With message : </b> " + nodeDetails[node].message.message + "<br>";
                         msgArea += "<b> Timestamp : </b> " + parseTimeStamp(nodeDetails[node].message.timestamp) + "<br>";
 
@@ -241,19 +264,26 @@
 
         $(document).ready(function () {
             generateOverview();
-            setInterval(generateOverview, 10000);
+            setInterval(generateOverview, 15000);
         });
 
 
 
 
-        function changeRoutingTable(name) {
+        function changeNodeRoutingTable(evt,nodeName) {
             var i;
-            var x = document.getElementsByClassName("node");
+            var x = document.getElementsByClassName("nodeRoutingTable");
             for (i = 0; i < x.length; i++) {
-                x[i].style.display = "none";
+                x[i].style.display = "none";  
             }
-            document.getElementById(name).style.display = "block";
+            document.getElementById(nodeName).style.display = "block";  
+            
+            tablinks = document.getElementsByClassName("tablink");
+            for (i = 0; i < x.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" w3-teal", "");
+            }
+            document.getElementById(nodeName).style.display = "block";
+            evt.currentTarget.className += " w3-teal";
         }
 
         function parseTimeStamp(ts) {
